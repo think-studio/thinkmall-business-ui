@@ -1,0 +1,60 @@
+/* 基本样式 */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	outline: none !important;
+}
+
+html,
+body,
+#app {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	font-family:
+		Helvetica Neue,
+		Helvetica,
+		PingFang SC,
+		Hiragino Sans GB,
+		Microsoft YaHei,
+		SimSun,
+		sans-serif;
+	font-weight: 400;
+	-webkit-font-smoothing: antialiased;
+	-webkit-tap-highlight-color: transparent;
+	font-size: 14px;
+	overflow: hidden;
+	position: relative;
+}
+
+.ba-operate-form {
+	padding: 30px;
+	// width: calc(100% - 80px);
+}
+/* 页面切换动画-s */
+.slide-right-enter-active,
+.slide-right-leave-active {
+	will-change: transform;
+	transition: all 0.3s ease;
+}
+// slide-right
+.slide-right-enter-from {
+	opacity: 0;
+	transform: translateX(-20px);
+}
+.slide-right-leave-to {
+	opacity: 0;
+	transform: translateX(20px);
+}
+
+.table-operate {
+	// padding: 4px 5px !important;
+	// height: auto !important;
+
+	.icon {
+		font-size: 14px !important;
+		color: var(--ba-bg-color-overlay) !important;
+	}
+}

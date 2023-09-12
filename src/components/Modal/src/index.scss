@@ -1,0 +1,150 @@
+.fullscreen-modal {
+	overflow: hidden;
+
+	.el-dialog {
+		top: 0 !important;
+		right: 0 !important;
+		bottom: 0 !important;
+		left: 0 !important;
+		width: 100% !important;
+		height: 100%;
+
+		&-content {
+			height: 100%;
+		}
+	}
+}
+
+.el-dialog {
+	min-width: 400px;
+	padding-bottom: 0;
+	overflow: hidden;
+	border-radius: var(--el-border-radius-base);
+
+	&:not(.is-fullscreen) {
+		max-height: calc(100vh - 15vh - 50px);
+		margin-top: 15vh;
+	}
+
+	.el-dialog__body > .scrollbar {
+		padding: 14px;
+	}
+
+	&-title {
+		font-size: 16px;
+		font-weight: bold;
+		line-height: 16px;
+
+		.base-title {
+			cursor: move !important;
+		}
+	}
+
+	.el-dialog__body {
+		padding: 0;
+
+		> .scrollbar > .scrollbar__bar.is-horizontal {
+			display: none;
+		}
+	}
+
+	&-large {
+		top: 60px;
+
+		&--mini {
+			top: 16px;
+		}
+	}
+
+	&__header {
+		padding: var(--el-dialog-padding-primary);
+		padding-bottom: 16px;
+		padding-right: 30px;
+		border-bottom: 1px solid #f0f0f0;
+	}
+
+	&-content {
+		box-shadow:
+			0 4px 8px 0 rgb(0 0 0 / 20%),
+			0 6px 20px 0 rgb(0 0 0 / 19%);
+	}
+
+	&__footer {
+		padding: 10px var(--el-dialog-padding-primary);
+		box-shadow: var(--el-box-shadow);
+		button + button {
+			margin-left: 10px;
+		}
+	}
+
+	&.el-dialog--center {
+		.el-dialog__footer > div {
+			width: 100% !important;
+		}
+	}
+
+	&__headerbtn {
+		width: 30px;
+		height: 30px;
+		top: 18px;
+		right: 12px;
+	}
+
+	&-close-x {
+		display: inline-block;
+		width: 96px;
+		height: 56px;
+		line-height: 56px;
+	}
+
+	&-confirm-body {
+		.el-dialog-confirm-content {
+			// color: #fff;
+
+			> * {
+				color: &text-color-help-dark;
+			}
+		}
+	}
+
+	&-confirm-confirm.error .el-dialog-confirm-body > .anticon {
+		color: &error-color;
+	}
+
+	&-confirm-btns {
+		.ant-btn:last-child {
+			margin-right: 0;
+		}
+	}
+
+	&-confirm-info {
+		.el-dialog-confirm-body > .anticon {
+			color: &warning-color;
+		}
+	}
+
+	&-confirm-confirm.success {
+		.el-dialog-confirm-body > .anticon {
+			color: &success-color;
+		}
+	}
+}
+
+.el-dialog-confirm .el-dialog__body {
+	padding: 24px !important;
+}
+@media screen and (max-height: 600px) {
+	.el-dialog {
+		top: 60px;
+	}
+}
+@media screen and (max-height: 540px) {
+	.el-dialog {
+		top: 30px;
+	}
+}
+@media screen and (max-height: 480px) {
+	.el-dialog {
+		top: 10px;
+	}
+}
