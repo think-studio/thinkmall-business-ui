@@ -1,10 +1,9 @@
 import { UserInfoModel } from '/@/api/sys/model/userModel';
-import { getUserInfoApi, loginApi, doLogout } from '/@/api/sys/user';
+import { getUserInfoApi, loginApi } from '/@/api/sys/user';
 import { store } from '/@/store';
 import { tokenLocalData } from '/@/utils/storage/local-data';
 import { ElMessageBox } from 'element-plus';
 import { router } from '/@/router';
-import { useAppStore } from './app';
 
 interface UserState {
 	token?: string;
@@ -70,7 +69,6 @@ export const useUserStore = defineStore('app-user', {
 		async logout(goLogin = false) {
 			if (this.getToken) {
 				try {
-					await doLogout();
 				} catch {
 					console.log('注销Token失败');
 				}

@@ -1,13 +1,14 @@
 import { cloneDeep } from 'lodash-es';
-import { AppRouteRecordRaw, BackMenuModel } from '../types';
+import { BackMenuModel } from '../types';
 import { treeMap } from '/@/utils/helper/treeHelper';
 import { RouteRecordRaw } from 'vue-router';
+import { BackRouteModel } from '/@/api/sys/model/userModel';
 
 export function transformRouteToMenu(
-	routeModList: RouteRecordRaw[]
+	routeModeList: BackRouteModel[]
 ): BackMenuModel[] {
-	const cloneRouteModList = cloneDeep(routeModList);
-	const routeList: RouteRecordRaw[] = [];
+	const cloneRouteModList = cloneDeep(routeModeList);
+	const routeList: BackRouteModel[] = [];
 
 	cloneRouteModList.forEach((item) => {
 		if (item.meta?.single) {
@@ -18,8 +19,8 @@ export function transformRouteToMenu(
 		}
 	});
 	const list: BackMenuModel[] = treeMap(routeList, {
-		conversion: (node: RouteRecordRaw) => {
-			const { name, path, meta: { title, icon, hidden } = {} } = node;
+		conversion: (node: BackRouteModel) => {
+			const { name, path, hidden, meta: { title, icon } = {} } = node;
 			return {
 				icon,
 				name: name,

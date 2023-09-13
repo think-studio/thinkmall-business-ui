@@ -5,8 +5,7 @@ import {
 	Router,
 	RouteRecordNormalized
 } from 'vue-router';
-import { AppRouteModule, AppRouteRecordRaw } from '../types';
-import { MenuModel } from '/@/api/sys/model/userModel';
+import { BackRouteModel } from '/@/api/sys/model/userModel';
 
 export const LAYOUT = () => import('/@/layouts/index.vue');
 
@@ -19,7 +18,7 @@ export const DEFAULT = () => import('/@/layouts/default/index.vue');
 
 let dynamicViewsModules: Record<string, () => Promise<Recordable>>;
 
-function asyncImportRoute(routes: MenuModel[] | undefined) {
+function asyncImportRoute(routes: BackRouteModel[] | undefined) {
 	dynamicViewsModules =
 		dynamicViewsModules || import.meta.glob('/src/views/**/*.{vue,tsx}');
 	if (!routes) return;
@@ -66,7 +65,9 @@ function dynamicImport(
 	}
 }
 
-export function transformObjToRoute(routeList: MenuModel[]): AppRouteModule[] {
+export function transformObjToRoute(
+	routeList: BackRouteModel[]
+): BackRouteModel[] {
 	routeList.forEach((route) => {
 		const component = route.component;
 		if (component) {
@@ -87,8 +88,8 @@ export function transformObjToRoute(routeList: MenuModel[]): AppRouteModule[] {
 	return routeList;
 }
 
-export function flatMultiLevelRoutes(routeModules: AppRouteModule[]) {
-	const modules: AppRouteModule[] = cloneDeep(routeModules);
+export function flatMultiLevelRoutes(routeModules: BackRouteModel[]) {
+	const modules: BackRouteModel[] = cloneDeep(routeModules);
 	for (let index = 0; index < modules.length; index++) {
 		const routeModule = modules[index];
 		if (!isMultipleRoute(routeModule)) {
@@ -99,7 +100,7 @@ export function flatMultiLevelRoutes(routeModules: AppRouteModule[]) {
 	return modules;
 }
 
-function isMultipleRoute(routeModule: AppRouteModule) {
+function isMultipleRoute(routeModule: BackRouteModel) {
 	if (
 		!routeModule ||
 		!Reflect.has(routeModule, 'children') ||
@@ -121,7 +122,7 @@ function isMultipleRoute(routeModule: AppRouteModule) {
 	return flag;
 }
 
-function promoteRouteLevel(routeModule: AppRouteModule) {
+function promoteRouteLevel(routeModule: BackRouteModel) {
 	// Use vue-router to splice menus
 	let router: Router | null = createRouter({
 		routes: [routeModule as unknown as RouteRecordNormalized],
@@ -137,8 +138,8 @@ function promoteRouteLevel(routeModule: AppRouteModule) {
 
 function addToChildren(
 	routes: RouteRecordNormalized[],
-	children: AppRouteRecordRaw[],
-	routeModule: AppRouteModule
+	children: BackRouteModel[],
+	routeModule: BackRouteModel
 ) {
 	for (let index = 0; index < children.length; index++) {
 		const child = children[index];
@@ -148,7 +149,7 @@ function addToChildren(
 		}
 		routeModule.children = routeModule.children || [];
 		if (!routeModule.children.find((item) => item.name === route.name)) {
-			routeModule.children?.push(route as unknown as AppRouteModule);
+			routeModule.children?.push(route as unknown as BackRouteModel);
 		}
 		if (child.children?.length) {
 			addToChildren(routes, child.children, routeModule);

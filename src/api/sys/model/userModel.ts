@@ -96,3 +96,21 @@ interface Dept {
 	delFlag?: any;
 	params?: any;
 }
+
+export interface BackRouteModel {
+	name: string;
+	path: string;
+	hidden: boolean;
+	redirect?: string;
+	component: Component | string;
+	alwaysShow?: boolean;
+	meta: BackRouteMeta;
+	children?: BackRouteModel[];
+}
+
+interface BackRouteMeta {
+	title: string;
+	icon: string;
+	noCache: boolean;
+	single: boolean;
+}

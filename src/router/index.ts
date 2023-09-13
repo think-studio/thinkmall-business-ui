@@ -2,11 +2,11 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import { setRouteChange } from '/@/logics/mitt/routeChange';
-import { routes } from './static';
+import { staticRoutes } from './static';
 
 export const router = createRouter({
 	history: createWebHashHistory(),
-	routes: routes
+	routes: staticRoutes
 });
 
 router.beforeEach(async (to) => {
