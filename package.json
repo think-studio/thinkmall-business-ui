@@ -27,6 +27,7 @@
 		"qs": "^6.11.1",
 		"resize-observer-polyfill": "^1.5.1",
 		"vue": "^3.2.37",
+		"vue-cropper": "^0.6.4",
 		"vue-router": "^4.1.5"
 	},
 	"devDependencies": {

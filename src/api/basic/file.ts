@@ -1,34 +1,13 @@
+import { ContentTypeEnum } from '/@/enums/httpEnum';
 import { defHttp } from '/@/utils/http/axios';
 
-interface OssInfoModel {
-	fileKey: string;
-	fileUrl: string;
-	uploadUrl: string;
-}
-
-export const getOssUploadInfolApi = (params: {
-	contentType: string;
-	folderName: string;
-	suffix: string;
-}) => {
-	return defHttp.get<OssInfoModel>({
-		url: '/base/oss/aliyun_form_upload',
-		params: params
-	});
-};
-
-export const ossUploadApi = (
-	url: string,
-	file: File,
-	headers: Recordable,
-	onUploadProgress: (progressEvent: ProgressEvent) => void
-) => {
-	return defHttp.uploadFile({
-		url: url,
-		onUploadProgress,
-		data: file,
+// 文件上传接口
+export function fileUploadApi(params: Recordable) {
+	return defHttp.post({
+		url: '/upload',
+		params,
 		headers: {
-			...headers
+			ContentType: ContentTypeEnum.FORM_DATA
 		}
 	});
-};
+}

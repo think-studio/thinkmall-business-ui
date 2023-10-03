@@ -64,6 +64,7 @@ declare module '@vue/runtime-core' {
     FormAction: typeof import('./components/Form/src/components/FormAction.vue')['default']
     FormItem: typeof import('./components/Form/src/components/FormItem.vue')['default']
     Icon: typeof import('./components/Icon/src/Icon.vue')['default']
+    ImageCropper: typeof import('./components/Upload/src/components/ImageCropper.vue')['default']
     ModalFooter: typeof import('./components/Modal/src/components/ModalFooter.vue')['default']
     ModalHeader: typeof import('./components/Modal/src/components/ModalHeader.vue')['default']
     ModalWrapper: typeof import('./components/Modal/src/components/ModalWrapper.vue')['default']

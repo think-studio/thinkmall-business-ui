@@ -69,6 +69,9 @@ export const transform: AxiosTransform = {
 				config.params = undefined;
 			}
 		}
+		config.headers = Object.assign(config.headers || {}, {
+			'tenant-id': 1000
+		});
 		return config;
 	},
 	/**

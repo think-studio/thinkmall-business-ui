@@ -128,9 +128,7 @@ export class VAxios {
 		}
 		conf.requestOptions = opt;
 		conf = this.supportFormData(conf);
-		conf.headers = Object.assign(conf.headers || {}, {
-			'tenant-id': 1000
-		});
+
 		return new Promise((resolve, reject) => {
 			this.axiosInstance
 				.request(conf)
