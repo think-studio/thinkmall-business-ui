@@ -1,126 +1,150 @@
-import { useTimeoutFn } from '@vueuse/core';
-import { get, isFunction, merge, toNumber } from 'lodash-es';
-import { ComputedRef } from 'vue';
-import { PaginationProps } from '../types/pagination';
-import { BasicTableProps, FetchParams } from '../types/table';
-
-interface ActionType {
-	getPaginationInfo: ComputedRef<PaginationProps | boolean>;
-	setPagination: (info: Partial<PaginationProps>) => void;
-	setLoading: (loading: boolean) => void;
-	getFieldsValue: () => Recordable;
-}
+import { ref, ComputedRef, unref, computed, onMounted, watchEffect, watch } from 'vue';
+import type { BasicTableProps } from '../types/table';
+import type { PaginationProps } from '../types/pagination';
+import { isBoolean, isFunction, isArray } from '@/utils/is';
+import { APISETTING } from '../const';
 
 export function useDataSource(
-	propsRef: ComputedRef<BasicTableProps>,
-	{ getPaginationInfo, setPagination, setLoading, getFieldsValue }: ActionType
+  propsRef: ComputedRef<BasicTableProps>,
+  { getPaginationInfo, setPagination, setLoading, tableData },
+  emit
 ) {
-	const dataSourceRef = ref<Recordable[]>([]);
-	const rawDataSourceRef = ref<Recordable>({});
+  const dataSourceRef = ref<Recordable[]>([]);
 
-	function handlePagintionChange(
-		pagination: {
-			pageSize?: number;
-			current?: number;
-		},
-		quickSearchParams?: Recordable
-	) {
-		setPagination(pagination);
-		fetch({
-			searchInfo: quickSearchParams
-		});
-	}
+  watchEffect(() => {
+    tableData.value = unref(dataSourceRef);
+  });
 
-	async function reload(opt?: FetchParams) {
-		return await fetch(opt);
-	}
+  watch(
+    () => unref(propsRef).dataSource,
+    () => {
+      const { dataSource }: any = unref(propsRef);
+      dataSource && (dataSourceRef.value = dataSource);
+    },
+    {
+      immediate: true,
+    }
+  );
 
-	async function fetch(opt?: FetchParams) {
-		let timer;
-		const {
-			api,
-			searchInfo,
-			pagination = true,
-			headerConfig = {}
-		} = unref(propsRef);
-		const { useSearchForm = true } = headerConfig;
-		if (!api || !isFunction(api)) return;
-		try {
-			timer = setTimeout(() => {
-				setLoading(true);
-			}, 300);
-			let pageParams: Recordable = {};
-			const { current = 1, pageSize = 10 } = unref(
-				getPaginationInfo
-			) as PaginationProps;
+  const getRowKey = computed(() => {
+    const { rowKey }: any = unref(propsRef);
+    return rowKey
+      ? rowKey
+      : () => {
+          return 'key';
+        };
+  });
 
-			if (pagination) {
-				pageParams['pageIndex'] = (opt && opt.page) || current;
-				pageParams['pageSize'] = pageSize;
-			}
-			let params = merge(
-				searchInfo,
-				useSearchForm ? getFieldsValue() : {},
-				pageParams,
-				opt?.searchInfo ?? {}
-			);
-			Object.keys(params).forEach((key) => {
-				if (params[key] === '') {
-					params[key] = undefined;
-				}
-			});
+  const getDataSourceRef = computed(() => {
+    const dataSource = unref(dataSourceRef);
+    if (!dataSource || dataSource.length === 0) {
+      return unref(dataSourceRef);
+    }
+    return unref(dataSourceRef);
+  });
 
-			const res = await api(params);
-			rawDataSourceRef.value = res;
-			let resultItems = [];
-			if (pagination) {
-				resultItems = get(res, 'data');
+  async function fetch(opt?) {
+    try {
+      setLoading(true);
+      const { request, pagination, beforeRequest, afterRequest }: any = unref(propsRef);
+      if (!request) return;
+      //组装分页信息
+      const pageField = APISETTING.pageField;
+      const sizeField = APISETTING.sizeField;
+      const totalField = APISETTING.totalField;
+      const listField = APISETTING.listField;
+      const itemCount = APISETTING.countField;
+      let pageParams = {};
+      const { page = 1, pageSize = 10 } = unref(getPaginationInfo) as PaginationProps;
 
-				const resultTotal: number = toNumber(get(res, 'count'));
-				setPagination({
-					total: resultTotal || 0
-				});
-				if (opt && opt.page) {
-					setPagination({
-						current: opt.page || 1
-					});
-				}
-			} else {
-				resultItems = get(res, 'data');
-			}
-			dataSourceRef.value = resultItems;
-			return resultItems;
-		} catch (err) {
-			console.log(err);
-			dataSourceRef.value = [];
-			setPagination({
-				total: 0
-			});
-		} finally {
-			clearTimeout(timer);
-			setLoading(false);
-		}
-	}
-	const getDataSourceRef = computed(() => {
-		const dataSource = unref(dataSourceRef);
-		if (!dataSource || dataSource.length === 0) {
-			return unref(dataSourceRef);
-		}
-		return unref(dataSourceRef);
-	});
+      if ((isBoolean(pagination) && !pagination) || isBoolean(getPaginationInfo)) {
+        pageParams = {};
+      } else {
+        pageParams[pageField] = (opt && opt[pageField]) || page;
+        pageParams[sizeField] = pageSize;
+      }
 
-	onMounted(() => {
-		if (unref(propsRef).immediate) {
-			useTimeoutFn(() => {
-				fetch();
-			}, 16);
-		}
-	});
+      let params = {
+        ...pageParams,
+        ...opt,
+      };
+      if (beforeRequest && isFunction(beforeRequest)) {
+        // The params parameter can be modified by outsiders
+        params = (await beforeRequest(params)) || params;
+      }
+      const res = await request(params);
+      const resultTotal = res[totalField];
+      const currentPage = res[pageField];
+      const total = res[itemCount];
+      const results = res[listField] ? res[listField] : [];
 
-	return {
-		getDataSourceRef,
-		handlePagintionChange,
-		reload,
-		fetch
-	};
+      // 如果数据异常，需获取正确的页码再次执行
+      if (resultTotal) {
+        const currentTotalPage = Math.ceil(total / pageSize);
+        if (page > currentTotalPage) {
+          setPagination({
+            page: currentTotalPage,
+            itemCount: total,
+          });
+          return await fetch(opt);
+        }
+      }
+      let resultInfo = res[listField] ? res[listField] : [];
+      if (afterRequest && isFunction(afterRequest)) {
+        // can modify the data returned by the interface for processing
+        resultInfo = (await afterRequest(resultInfo)) || resultInfo;
+      }
+      dataSourceRef.value = resultInfo;
+      setPagination({
+        page: currentPage,
+        pageCount: resultTotal,
+        itemCount: total,
+      });
+      if (opt && opt[pageField]) {
+        setPagination({
+          page: opt[pageField] || 1,
+        });
+      }
+      emit('fetch-success', {
+        items: unref(resultInfo),
+        resultTotal,
+      });
+    } catch (error) {
+      console.error(error);
+      emit('fetch-error', error);
+      dataSourceRef.value = [];
+      setPagination({
+        pageCount: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  onMounted(() => {
+    setTimeout(() => {
+      fetch();
+    }, 16);
+  });
+
+  function setTableData(values) {
+    dataSourceRef.value = values;
+  }
+
+  function getDataSource(): any[] {
+    return getDataSourceRef.value;
+  }
+
+  async function reload(opt?) {
+    await fetch(opt);
+  }
+
+  return {
+    fetch,
+    getRowKey,
+    getDataSourceRef,
+    getDataSource,
+    setTableData,
+    reload,
+  };
 }

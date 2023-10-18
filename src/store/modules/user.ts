@@ -1,105 +1,95 @@
-import { UserInfoModel } from '/@/api/sys/model/userModel';
-import { getUserInfoApi, loginApi } from '/@/api/sys/user';
-import { store } from '/@/store';
-import { tokenLocalData } from '/@/utils/storage/local-data';
-import { ElMessageBox } from 'element-plus';
-import { router } from '/@/router';
+import { defineStore } from 'pinia';
+import { store } from '@/store';
+import { ACCESS_TOKEN, CURRENT_USER, IS_SCREENLOCKED } from '@/store/mutation-types';
 
-interface UserState {
-	token?: string;
-	userInfo?: UserInfoModel;
-	permission?: string[];
-	sessionTimeout?: boolean;
+import { getUserInfo as getUserInfoApi, login } from '@/api/system/user';
+import { storage } from '@/utils/Storage';
+import type { UserInfoModel } from '@/api/system/model/userModel';
+
+export interface IUserState {
+  token: string;
+  username: string;
+  welcome: string;
+  avatar: string;
+  permissions: any[];
+  info: UserInfoModel;
 }
 
-export const useUserStore = defineStore('app-user', {
-	state: (): UserState => ({
-		token: undefined,
-		userInfo: undefined,
-		permission: undefined,
-		sessionTimeout: false
-	}),
-	getters: {
-		getToken(): Nullable<string> {
-			return this.token || tokenLocalData.get();
-		},
-		getPermission(): Nullable<string[]> {
-			return this.permission || [];
-		},
-		getSessionTimeout(): boolean {
-			return !!this.sessionTimeout;
-		},
-		getUserInfo(): UserInfoModel | undefined {
-			return this.userInfo;
-		}
-	},
-	actions: {
-		setToken(token: string | undefined, expires_in?: number) {
-			this.token = token;
-			tokenLocalData.set(token);
-		},
-		login(params: any) {
-			return new Promise(async (resolve, reject) => {
-				try {
-					const { access_token, expires_in } = await (
-						await loginApi(params)
-					).data;
-					this.setToken(access_token, expires_in);
-					resolve(access_token);
-				} catch (error) {
-					reject(error);
-				}
-			});
-		},
-		async setUserInfo() {
-			const res = await getUserInfoApi();
-			this.userInfo = res.data;
-			this.setPermission();
-			// this.setOrgInfo();
-			// useAppStore().setDictData();
-			return res.data;
-		},
+export const useUserStore = defineStore({
+  id: 'app-user',
+  state: (): IUserState => ({
+    token: storage.get(ACCESS_TOKEN, ''),
+    username: '',
+    welcome: '',
+    avatar: '',
+    permissions: [],
+    info: storage.get(CURRENT_USER, {}),
+  }),
+  getters: {
+    getToken(): string {
+      return this.token;
+    },
+    getAvatar(): string {
+      return this.avatar;
+    },
+    getNickname(): string {
+      return this.username;
+    },
+    getPermissions(): [any][] {
+      return this.permissions;
+    },
+    getUserInfo(): UserInfoModel {
+      return this.info;
+    },
+  },
+  actions: {
+    setToken(token: string) {
+      this.token = token;
+    },
+    setAvatar(avatar: string) {
+      this.avatar = avatar;
+    },
+    setPermissions(permissions) {
+      this.permissions = permissions;
+    },
+    setUserInfo(info: UserInfoModel) {
+      this.info = info;
+    },
+    // 登录
+    login(params: any) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const response = await login(params);
+          const { access_token, expires_in } = response.data;
+          storage.set(ACCESS_TOKEN, access_token, expires_in);
+          storage.set(IS_SCREENLOCKED, false);
+          this.setToken(access_token);
+          resolve(access_token);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
 
-		setPermission() {
-			this.permission = this.userInfo?.permissions;
-		},
-		/**
-		 * @description: logout
-		 */
-		async logout(goLogin = false) {
-			if (this.getToken) {
-				try {
-				} catch {
-					console.log('注销Token失败');
-				}
-			}
-			this.setToken(undefined);
-			this.setSessionTimeout(false);
-			goLogin && this.goLoginPage();
-		},
-		setSessionTimeout(flag: boolean) {
-			this.sessionTimeout = flag;
-		},
-		goLoginPage() {
-			router.go(0);
-		},
-		/**
-		 * @description: Confirm before logging out
-		 */
-		confirmLoginOut() {
-			ElMessageBox.confirm('是否确认退出登录?', '温馨提醒', {
-				// confirmButtonText: 'OK',
-				// cancelButtonText: 'Cancel',
-				type: 'warning'
-			})
-				.then(async () => {
-					await this.logout(true);
-				})
-				.catch(() => {});
-		}
-	}
+    // 获取用户信息
+    async getInfo() {
+      const res = await getUserInfoApi();
+      this.setUserInfo(res.data);
+      this.setAvatar(res.data.user.avatar);
+      return res.data;
+    },
+
+    // 登出
+    async logout() {
+      this.setPermissions([]);
+
+      storage.remove(ACCESS_TOKEN);
+      storage.remove(CURRENT_USER);
+    },
+  },
 });
 
-export function useUserStoreWithOut() {
-	return useUserStore(store);
+// Need to be used outside the setup
+export function useUser() {
+  return useUserStore(store);
 }

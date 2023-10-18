@@ -1,152 +1,214 @@
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { AxiosRequestConfig, AxiosInstance, AxiosResponse } from 'axios';
+
 import axios from 'axios';
 import { AxiosCanceler } from './axiosCancel';
-import { AxiosTransform } from './axiosTransform';
-import { RequestOptions, Result } from '/#/axios';
-import { cloneDeep, isFunction } from 'lodash-es';
-import { ContentTypeEnum, RequestEnum } from '/@/enums/httpEnum';
-import qs from 'qs';
+import { isFunction } from '@/utils/is';
+import { cloneDeep } from 'lodash-es';
 
-export interface CreateAxiosOptions extends AxiosRequestConfig {
-	transform?: AxiosTransform;
-	requestOptions?: RequestOptions;
-}
+import type { RequestOptions, CreateAxiosOptions, Result, UploadFileParams } from './types';
+import { ContentTypeEnum } from '@/enums/httpEnum';
 
+export * from './axiosTransform';
+
+/**
+ * @description:  axios模块
+ */
 export class VAxios {
-	private axiosInstance: AxiosInstance;
-	private readonly options: CreateAxiosOptions;
-	constructor(options: CreateAxiosOptions) {
-		this.axiosInstance = axios.create(options);
-		this.options = options;
-		this.setupInterceptors();
-	}
+  private axiosInstance: AxiosInstance;
+  private options: CreateAxiosOptions;
 
-	private getTransform() {
-		return this.options.transform;
-	}
+  constructor(options: CreateAxiosOptions) {
+    this.options = options;
+    this.axiosInstance = axios.create(options);
+    this.setupInterceptors();
+  }
 
-	// support form-data
-	supportFormData(config: AxiosRequestConfig) {
-		const headers = config.headers || this.options.headers;
-		const contentType = headers?.['Content-Type'] || headers?.['content-type'];
+  getAxios(): AxiosInstance {
+    return this.axiosInstance;
+  }
 
-		if (
-			contentType !== ContentTypeEnum.FORM_URLENCODED ||
-			!Reflect.has(config, 'data') ||
-			config.method?.toUpperCase() === RequestEnum.GET
-		) {
-			return config;
-		}
+  /**
+   * @description: 重新配置axios
+   */
+  configAxios(config: CreateAxiosOptions) {
+    if (!this.axiosInstance) {
+      return;
+    }
+    this.createAxios(config);
+  }
 
-		return {
-			...config,
-			data: qs.stringify(config.data, { arrayFormat: 'brackets' })
-		};
-	}
+  /**
+   * @description: 设置通用header
+   */
+  setHeader(headers: any): void {
+    if (!this.axiosInstance) {
+      return;
+    }
+    Object.assign(this.axiosInstance.defaults.headers, headers);
+  }
 
-	private setupInterceptors() {
-		const axiosCanceler = new AxiosCanceler();
-		const { requestInterceptors, responseInterceptorsCatch } =
-			this.getTransform() || {};
-		this.axiosInstance.interceptors.request.use(
-			(config: AxiosRequestConfig) => {
-				const {
-					// @ts-ignore
-					headers: { ignoreCancelToken }
-				} = config;
+  /**
+   * @description:   get请求方法
+   */
+  get<T = any>(config: AxiosRequestConfig, options?: RequestOptions): Promise<Result<T>> {
+    return this.request<T>({ method: 'get', ...config }, options);
+  }
 
-				const ignoreCancel =
-					ignoreCancelToken !== undefined
-						? ignoreCancelToken
-						: this.options.requestOptions?.ignoreCancelToken;
+  /**
+   * @description:   post请求方法
+   */
+  post<T = any>(config: AxiosRequestConfig, options?: RequestOptions): Promise<Result<T>> {
+    return this.request<T>({ method: 'post', ...config }, options);
+  }
 
-				!ignoreCancel && axiosCanceler.addPending(config);
-				if (requestInterceptors && isFunction(requestInterceptors)) {
-					config = requestInterceptors(config, this.options);
-				}
+  /**
+   * @description:   请求方法
+   */
+  request<T = any>(config: AxiosRequestConfig, options?: RequestOptions): Promise<Result<T>> {
+    let conf: AxiosRequestConfig = cloneDeep(config);
+    const transform = this.getTransform();
 
-				return config;
-			}
-		);
-		responseInterceptorsCatch &&
-			isFunction(responseInterceptorsCatch) &&
-			this.axiosInstance.interceptors.response.use(
-				undefined,
-				responseInterceptorsCatch
-			);
-	}
+    const { requestOptions } = this.options;
 
-	get<T = any>(
-		config: AxiosRequestConfig,
-		options?: RequestOptions
-	): Promise<Result<T>> {
-		return this.request<T>({ method: 'get', ...config }, options);
-	}
+    const opt: RequestOptions = Object.assign({}, requestOptions, options);
 
-	delete<T = any>(
-		config: AxiosRequestConfig,
-		options?: RequestOptions
-	): Promise<Result<T>> {
-		return this.request<T>({ method: 'delete', ...config }, options);
-	}
+    const { beforeRequestHook, requestCatch, transformRequestData } = transform || {};
+    if (beforeRequestHook && isFunction(beforeRequestHook)) {
+      conf = beforeRequestHook(conf, opt);
+    }
 
-	put<T = any>(
-		config: AxiosRequestConfig,
-		options?: RequestOptions
-	): Promise<Result<T>> {
-		return this.request<T>({ method: 'put', ...config }, options);
-	}
+    //这里重新 赋值成最新的配置
+    // @ts-ignore
+    conf.requestOptions = opt;
 
-	post<T = any>(
-		config: AxiosRequestConfig,
-		options?: RequestOptions
-	): Promise<Result<T>> {
-		return this.request<T>({ method: 'post', ...config }, options);
-	}
+    return new Promise((resolve, reject) => {
+      this.axiosInstance
+        .request<any, AxiosResponse<Result>>(conf)
+        .then((res: AxiosResponse<Result>) => {
+          // 请求是否被取消
+          const isCancel = axios.isCancel(res);
+          if (transformRequestData && isFunction(transformRequestData) && !isCancel) {
+            try {
+              const ret = transformRequestData(res, opt);
+              resolve(ret);
+            } catch (err) {
+              reject(err || new Error('request error!'));
+            }
+            return;
+          }
+          resolve(res as unknown as Promise<Result<T>>);
+        })
+        .catch((e: Error) => {
+          if (requestCatch && isFunction(requestCatch)) {
+            reject(requestCatch(e));
+            return;
+          }
+          reject(e);
+        });
+    });
+  }
 
-	uploadFile<T = any>(config: AxiosRequestConfig) {
-		return this.axiosInstance.request<T>({
-			...config,
-			method: 'PUT',
-			timeout: 1000000000
-		});
-	}
+  /**
+   * @description:  创建axios实例
+   */
+  private createAxios(config: CreateAxiosOptions): void {
+    this.axiosInstance = axios.create(config);
+  }
 
-	request<T = any>(
-		config: AxiosRequestConfig,
-		options?: RequestOptions
-	): Promise<Result<T>> {
-		const { beforeRequestHook, transformRequestHook } =
-			this.getTransform() || {};
-		let conf: CreateAxiosOptions = cloneDeep(config);
+  private getTransform() {
+    const { transform } = this.options;
+    return transform;
+  }
 
-		const { requestOptions } = this.options;
+  /**
+   * @description:  文件上传
+   */
+  uploadFile<T = any>(config: AxiosRequestConfig, params: UploadFileParams) {
+    const formData = new window.FormData();
+    const customFilename = params.name || 'file';
 
-		const opt = Object.assign({}, requestOptions, options);
-		if (beforeRequestHook && isFunction(beforeRequestHook)) {
-			conf = beforeRequestHook(config, opt);
-		}
-		conf.requestOptions = opt;
-		conf = this.supportFormData(conf);
+    if (params.filename) {
+      formData.append(customFilename, params.file, params.filename);
+    } else {
+      formData.append(customFilename, params.file);
+    }
 
-		return new Promise((resolve, reject) => {
-			this.axiosInstance
-				.request(conf)
-				.then(async (res: AxiosResponse<Result<T>>) => {
-					if (transformRequestHook && isFunction(transformRequestHook)) {
-						try {
-							const ret = await transformRequestHook<T>(res, opt);
-							resolve(ret);
-						} catch (error) {
-							reject(error);
-						}
-						return;
-					}
-					resolve(res as any);
-				})
-				.catch((e) => {
-					reject(e);
-				});
-		});
-	}
+    if (params.data) {
+      Object.keys(params.data).forEach((key) => {
+        const value = params.data![key];
+        if (Array.isArray(value)) {
+          value.forEach((item) => {
+            formData.append(`${key}[]`, item);
+          });
+          return;
+        }
+
+        formData.append(key, params.data![key]);
+      });
+    }
+
+    return this.axiosInstance.request<T>({
+      method: 'POST',
+      data: formData,
+      headers: {
+        'Content-type': ContentTypeEnum.FORM_DATA,
+        ignoreCancelToken: true,
+      },
+      ...config,
+    });
+  }
+
+  /**
+   * @description: 拦截器配置
+   */
+  private setupInterceptors() {
+    const transform = this.getTransform();
+    if (!transform) {
+      return;
+    }
+    const {
+      requestInterceptors,
+      requestInterceptorsCatch,
+      responseInterceptors,
+      responseInterceptorsCatch,
+    } = transform;
+
+    const axiosCanceler = new AxiosCanceler();
+
+    // 请求拦截器配置处理
+    this.axiosInstance.interceptors.request.use((config: AxiosRequestConfig) => {
+      const {
+        headers: { ignoreCancelToken },
+      } = config;
+      const ignoreCancel =
+        ignoreCancelToken !== undefined
+          ? ignoreCancelToken
+          : this.options.requestOptions?.ignoreCancelToken;
+
+      !ignoreCancel && axiosCanceler.addPending(config);
+      if (requestInterceptors && isFunction(requestInterceptors)) {
+        config = requestInterceptors(config, this.options);
+      }
+      return config;
+    }, undefined);
+
+    // 请求拦截器错误捕获
+    requestInterceptorsCatch &&
+      isFunction(requestInterceptorsCatch) &&
+      this.axiosInstance.interceptors.request.use(undefined, requestInterceptorsCatch);
+
+    // 响应结果拦截器处理
+    this.axiosInstance.interceptors.response.use((res: AxiosResponse<any>) => {
+      res && axiosCanceler.removePending(res.config);
+      if (responseInterceptors && isFunction(responseInterceptors)) {
+        res = responseInterceptors(res);
+      }
+      return res;
+    }, undefined);
+
+    // 响应结果拦截器错误捕获
+    responseInterceptorsCatch &&
+      isFunction(responseInterceptorsCatch) &&
+      this.axiosInstance.interceptors.response.use(undefined, responseInterceptorsCatch);
+  }
 }

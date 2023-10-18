@@ -1,60 +1,61 @@
-import type { AxiosRequestConfig, Canceler } from 'axios';
-import axios from 'axios';
-import { isFunction } from 'lodash-es';
+import axios, { AxiosRequestConfig, Canceler } from 'axios';
+import qs from 'qs';
 
+import { isFunction } from '@/utils/is/index';
+
+// 声明一个 Map 用于存储每个请求的标识 和 取消函数
 let pendingMap = new Map<string, Canceler>();
 
 export const getPendingUrl = (config: AxiosRequestConfig) =>
-	[config.method, config.url].join('&');
+  [config.method, config.url, qs.stringify(config.data), qs.stringify(config.params)].join('&');
 
 export class AxiosCanceler {
-	/**
-	 * Add request
-	 * @param {Object} config
-	 */
-	addPending(config: AxiosRequestConfig) {
-		this.removePending(config);
-		const url = getPendingUrl(config);
-		config.cancelToken =
-			config.cancelToken ||
-			new axios.CancelToken((cancel) => {
-				if (!pendingMap.has(url)) {
-					// If there is no current request in pending, add it
-					pendingMap.set(url, cancel);
-				}
-			});
-	}
+  /**
+   * 添加请求
+   * @param {Object} config
+   */
+  addPending(config: AxiosRequestConfig) {
+    this.removePending(config);
+    const url = getPendingUrl(config);
+    config.cancelToken =
+      config.cancelToken ||
+      new axios.CancelToken((cancel) => {
+        if (!pendingMap.has(url)) {
+          // 如果 pending 中不存在当前请求，则添加进去
+          pendingMap.set(url, cancel);
+        }
+      });
+  }
 
-	/**
-	 * @description: Clear all pending
-	 */
-	removeAllPending() {
-		pendingMap.forEach((cancel) => {
-			cancel && isFunction(cancel) && cancel();
-		});
-		pendingMap.clear();
-	}
+  /**
+   * @description: 清空所有pending
+   */
+  removeAllPending() {
+    pendingMap.forEach((cancel) => {
+      cancel && isFunction(cancel) && cancel();
+    });
+    pendingMap.clear();
+  }
 
-	/**
-	 * Removal request
-	 * @param {Object} config
-	 */
-	removePending(config: AxiosRequestConfig) {
-		const url = getPendingUrl(config);
+  /**
+   * 移除请求
+   * @param {Object} config
+   */
+  removePending(config: AxiosRequestConfig) {
+    const url = getPendingUrl(config);
 
-		if (pendingMap.has(url)) {
-			// If there is a current request identifier in pending,
-			// the current request needs to be cancelled and removed
-			const cancel = pendingMap.get(url);
-			cancel && cancel(url);
-			pendingMap.delete(url);
-		}
-	}
+    if (pendingMap.has(url)) {
+      // 如果在 pending 中存在当前请求标识，需要取消当前请求，并且移除
+      const cancel = pendingMap.get(url);
+      cancel && cancel(url);
+      pendingMap.delete(url);
+    }
+  }
 
-	/**
-	 * @description: reset
-	 */
-	reset(): void {
-		pendingMap = new Map<string, Canceler>();
-	}
+  /**
+   * @description: 重置
+   */
+  reset(): void {
+    pendingMap = new Map<string, Canceler>();
+  }
 }

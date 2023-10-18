@@ -1,86 +1,66 @@
-import { defineConfig, loadEnv } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import Icons from 'unplugin-icons/vite';
-import IconsResolver from 'unplugin-icons/resolver';
-import vueJsx from '@vitejs/plugin-vue-jsx';
+import type { UserConfig, ConfigEnv } from 'vite';
+import { loadEnv } from 'vite';
 import { resolve } from 'path';
-import { createProxy } from './build/vite/proxy';
 import { wrapperEnv } from './build/utils';
-import { configHtmlPlugin } from './build/vite/plugins/html';
-import AutoImport from 'unplugin-auto-import/vite';
-import Components from 'unplugin-vue-components/vite';
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
-import { svgBuilder } from './src/components/Icon/src/svg/index';
-import vueSetupExtend from 'vite-plugin-vue-setup-extend';
+import { createVitePlugins } from './build/vite/plugin';
+import { OUTPUT_DIR } from './build/constant';
+import { createProxy } from './build/vite/proxy';
+import pkg from './package.json';
+import { format } from 'date-fns';
+const { dependencies, devDependencies, name, version } = pkg;
+
+const __APP_INFO__ = {
+  pkg: { dependencies, devDependencies, name, version },
+  lastBuildTime: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+};
 
 function pathResolve(dir: string) {
-	return resolve(process.cwd(), '.', dir);
+  return resolve(process.cwd(), '.', dir);
 }
 
-// https://vitejs.dev/config/
-export default defineConfig(({ command, mode }) => {
-	const root = process.cwd();
-	const env = loadEnv(mode, root);
-	const isBuild = command === 'build';
-
-	const viteEnv = wrapperEnv(env);
-	const { VITE_PUBLIC_PATH, VITE_PROXY, VITE_DROP_CONSOLE, VITE_PORT } =
-		viteEnv;
-	return {
-		base: VITE_PUBLIC_PATH,
-		root,
-		plugins: [
-			vue(),
-			vueJsx(),
-			vueSetupExtend(),
-			svgBuilder('src/assets/icons/'),
-			AutoImport({
-				imports: ['vue', 'vue-router', 'pinia'],
-				dts: 'src/auto-imports.d.ts',
-				resolvers: [
-					ElementPlusResolver(),
-					IconsResolver({
-						prefix: 'Icon'
-					})
-				]
-			}),
-			Components({
-				resolvers: [
-					ElementPlusResolver(),
-					IconsResolver({
-						enabledCollections: ['ep']
-					})
-				],
-				dts: 'src/components.d.ts'
-			}),
-			Icons({
-				autoInstall: true
-			}),
-			configHtmlPlugin(viteEnv, isBuild)
-		],
-		resolve: {
-			alias: [
-				{
-					find: /\/@\//,
-					replacement: pathResolve('src') + '/'
-				},
-				{
-					find: /\/#\//,
-					replacement: pathResolve('types') + '/'
-				}
-			]
-		},
-		server: {
-			https: false,
-			port: VITE_PORT,
-			host: true,
-			hmr: {
-				overlay: false
-			},
-			proxy: createProxy(VITE_PROXY)
-		},
-		esbuild: {
-			pure: VITE_DROP_CONSOLE ? ['console.log', 'debugger'] : []
-		}
-	};
-});
+export default ({ command, mode }: ConfigEnv): UserConfig => {
+  const root = process.cwd();
+  const env = loadEnv(mode, root);
+  const viteEnv = wrapperEnv(env);
+  const { VITE_PUBLIC_PATH, VITE_PORT, VITE_GLOB_PROD_MOCK, VITE_PROXY } =
+    viteEnv;
+  const prodMock = VITE_GLOB_PROD_MOCK;
+  const isBuild = command === 'build';
+  return {
+    base: VITE_PUBLIC_PATH,
+    esbuild: {},
+    resolve: {
+      alias: [
+        {
+          find: /\/#\//,
+          replacement: pathResolve('types') + '/',
+        },
+        {
+          find: '@',
+          replacement: pathResolve('src') + '/',
+        },
+      ],
+      dedupe: ['vue'],
+    },
+    plugins: createVitePlugins(viteEnv, isBuild, prodMock),
+    define: {
+      __APP_INFO__: JSON.stringify(__APP_INFO__),
+    },
+    server: {
+      host: true,
+      port: VITE_PORT,
+      proxy: createProxy(VITE_PROXY),
+    },
+    optimizeDeps: {
+      include: [],
+      exclude: ['vue-demi'],
+    },
+    build: {
+      target: 'es2015',
+      cssTarget: 'chrome80',
+      outDir: OUTPUT_DIR,
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 2000,
+    },
+  };
+};

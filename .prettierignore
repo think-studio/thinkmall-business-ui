@@ -1,8 +1,9 @@
-dist
-node_modules
-out/
-.next
-.swc
-coverage
+/dist/*
+.local
+.output.js
+/node_modules/**
 
-packages/broker-icons/src/icons
+**/*.svg
+**/*.sh
+
+/public/*

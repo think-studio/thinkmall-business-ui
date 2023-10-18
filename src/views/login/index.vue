@@ -1,258 +1,182 @@
 <template>
-	<div class="container">
-		<div class="main">
-			<img class="login_bg" src="../../assets/login_bg.png" alt="" />
-			<div class="login">
-				<img class="logo" src="../../assets/logo.png" alt="" />
-				<div class="org-info">
-					<img class="org-logo" src="../../assets/org_logo.png" />
-					<!-- <p class="login_title">{{ orgInfo?.orgName }}</p> -->
-				</div>
-
-				<div class="code_login">
-					<el-form
-						ref="formRef"
-						:model="formData"
-						:rules="rules"
-						label-width="0"
-						status-icon
-						@keypress.enter="handleSubmit"
-					>
-						<el-form-item prop="userName">
-							<el-input
-								v-model="formData.username"
-								size="large"
-								maxlength="11"
-								placeholder="请输入账号"
-								:prefix-icon="Iphone"
-							></el-input>
-						</el-form-item>
-						<el-form-item prop="password">
-							<el-input
-								v-model="formData.password"
-								size="large"
-								type="password"
-								show-password
-								placeholder="请输入账号密码"
-								:prefix-icon="MoreFilled"
-							></el-input>
-						</el-form-item>
-					</el-form>
-					<el-button
-						class="login_btn"
-						type="primary"
-						size="large"
-						:loading="loginLoading"
-						@click="handleSubmit"
-					>
-						登录
-					</el-button>
-				</div>
-			</div>
-		</div>
-	</div>
+  <div class="view-account">
+    <div class="view-account-header"></div>
+    <div class="view-account-container">
+      <div class="view-account-top">
+        <div class="view-account-top-logo">
+          <img :src="websiteConfig.loginImage" alt="" />
+        </div>
+        <div class="view-account-top-desc">{{ websiteConfig.loginDesc }}</div>
+      </div>
+      <div class="view-account-form">
+        <n-form
+          ref="formRef"
+          label-placement="left"
+          size="large"
+          :model="formInline"
+          :rules="rules"
+        >
+          <n-form-item path="username">
+            <n-input v-model:value="formInline.username" placeholder="请输入用户名">
+              <template #prefix>
+                <n-icon size="18" color="#808695">
+                  <PersonOutline />
+                </n-icon>
+              </template>
+            </n-input>
+          </n-form-item>
+          <n-form-item path="password">
+            <n-input
+              v-model:value="formInline.password"
+              type="password"
+              showPasswordOn="click"
+              placeholder="请输入密码"
+            >
+              <template #prefix>
+                <n-icon size="18" color="#808695">
+                  <LockClosedOutline />
+                </n-icon>
+              </template>
+            </n-input>
+          </n-form-item>
+          <n-form-item class="default-color">
+            <div class="flex justify-between">
+              <div class="flex-initial">
+                <n-checkbox v-model:checked="autoLogin">自动登录</n-checkbox>
+              </div>
+              <div class="flex-initial order-last">
+                <a href="javascript:">忘记密码</a>
+              </div>
+            </div>
+          </n-form-item>
+          <n-form-item>
+            <n-button type="primary" @click="handleSubmit" size="large" :loading="loading" block>
+              登录
+            </n-button>
+          </n-form-item>
+        </n-form>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script lang="ts" setup name="Login">
-import { ElForm, ElNotification } from 'element-plus';
-import type { FormRules } from 'element-plus';
-import { Iphone, MoreFilled } from '@element-plus/icons-vue';
-import router from '/@/router';
-import { useUserStore } from '/@/store/modules/user';
+<script lang="ts" setup>
+  import { reactive, ref } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import { useUserStore } from '@/store/modules/user';
+  import { useMessage } from 'naive-ui';
+  import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
+  import { PageEnum } from '@/enums/pageEnum';
+  import { websiteConfig } from '@/config/website.config';
+  interface FormState {
+    username: string;
+    password: string;
+    loginType: number;
+    code: string;
+  }
 
-const formRef = ref<InstanceType<typeof ElForm>>();
-const loginLoading = ref(false);
+  const formRef = ref();
+  const message = useMessage();
+  const loading = ref(false);
+  const autoLogin = ref(true);
+  const LOGIN_NAME = PageEnum.BASE_LOGIN_NAME;
 
-const formData = reactive({
-	username: '',
-	password: '',
-	loginType: 1,
-	code: 'xxx000111'
-});
+  const formInline = reactive({
+    username: 'admin',
+    password: '123456',
+  });
 
-const rules = reactive<FormRules>({
-	account: [
-		{
-			required: true,
-			message: '请输入账号',
-			trigger: 'blur'
-		}
-	],
-	password: [
-		{
-			required: true,
-			message: '请输入账号密码',
-			trigger: 'blur'
-		}
-	]
-});
+  const rules = {
+    username: { required: true, message: '请输入用户名', trigger: 'blur' },
+    password: { required: true, message: '请输入密码', trigger: 'blur' },
+  };
 
-function handleSubmit() {
-	formRef.value?.validate((valid) => {
-		if (valid) {
-			loginLoading.value = true;
-			useUserStore()
-				.login(formData)
-				.then((res: any) => {
-					ElNotification({
-						message: '登录成功',
-						type: 'success'
-					});
-					router.push({
-						name: 'Root'
-					});
-				})
-				.finally(() => {
-					loginLoading.value = false;
-				});
-		}
-	});
-}
+  const userStore = useUserStore();
+
+  const router = useRouter();
+  const route = useRoute();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    formRef.value.validate(async (errors) => {
+      if (!errors) {
+        const { username, password } = formInline;
+        message.loading('登录中...');
+        loading.value = true;
+
+        const params: FormState = {
+          username,
+          password,
+          loginType: 1,
+          code: 'xxx000111',
+        };
+
+        try {
+          await userStore.login(params);
+          message.destroyAll();
+          const toPath = decodeURIComponent((route.query?.redirect || '/') as string);
+          message.success('登录成功，即将进入系统');
+          if (route.name === LOGIN_NAME) {
+            router.replace('/');
+          } else router.replace(toPath);
+        } finally {
+          loading.value = false;
+        }
+      } else {
+        message.error('请填写完整信息，并且进行验证码校验');
+      }
+    });
+  };
 </script>
 
-<style lang="scss" scoped>
-$mainColor: #468eec;
-.container {
-	width: 100vw;
-	height: 100vh;
-	padding: 100px 0;
-	background-color: $mainColor;
-	justify-content: center;
-	display: flex;
+<style lang="less" scoped>
+  .view-account {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: auto;
 
-	.login_bg {
-		height: 100%;
-		justify-self: self-start;
-	}
+    &-container {
+      flex: 1;
+      padding: 32px 12px;
+      max-width: 384px;
+      min-width: 320px;
+      margin: 0 auto;
+    }
 
-	.main {
-		position: relative;
-		max-width: 1300px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex: 1;
-		background-color: #fff;
-		border-radius: 19px;
-		.logo {
-			position: absolute;
-			left: 30px;
-			top: 30px;
-			width: 166px;
-			height: 48px;
-		}
+    &-top {
+      padding: 32px 0;
+      text-align: center;
 
-		.login {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			background-color: #fff;
-			padding: 30px;
-			.org-info {
-				display: flex;
-				.org-logo {
-					height: 50px;
-				}
-				.login_title {
-					color: $mainColor;
-					font-weight: blod;
-					font-size: 28px;
-				}
-			}
+      &-desc {
+        font-size: 14px;
+        color: #808695;
+      }
+    }
 
-			.code_login {
-				// height: 400px;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				padding: 40px 0;
+    &-other {
+      width: 100%;
+    }
 
-				// justify-content: center;
-				:deep(.el-form-item) {
-					margin-bottom: 30px;
-				}
+    .default-color {
+      color: #515a6e;
 
-				:deep(.el-input__wrapper) {
-					width: 300px !important;
-					box-shadow: none;
-					background-color: white !important;
-					border-bottom: solid 1px
-						var(--el-input-border-color, var(--el-border-color));
-					border-radius: 0;
-					padding: 1px 11px !important;
-				}
+      .ant-checkbox-wrapper {
+        color: #515a6e;
+      }
+    }
+  }
 
-				:deep(.el-form-item.is-error .el-input__wrapper) {
-					border-bottom-color: var(--el-color-danger);
-				}
+  @media (min-width: 768px) {
+    .view-account {
+      background-image: url('../../assets/images/login.svg');
+      background-repeat: no-repeat;
+      background-position: 50%;
+      background-size: 100%;
+    }
 
-				:deep(.el-input__suffix-inner) {
-					display: flex;
-					flex-direction: row-reverse;
-				}
-
-				.login_btn {
-					width: 240px;
-					margin-top: 30px;
-				}
-				.footer {
-					color: #909399;
-				}
-			}
-
-			.resiger_link {
-				span {
-					cursor: pointer;
-					color: #169bd5;
-				}
-			}
-		}
-	}
-}
-
-:deep(.el-tabs__nav-wrap::after) {
-	display: none;
-}
-
-:deep(.el-tabs__item) {
-	width: 160px;
-	text-align: center;
-}
-
-:deep(.el-tabs__active-bar) {
-	width: 100px !important;
-	margin-left: 20px;
-}
-
-:deep(.el-tab-pane) {
-	display: flex;
-	justify-content: center;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-	transition: opacity 0.5s;
-}
-
-.fade-enter,
-.fade-leave-to {
-	opacity: 0;
-}
-
-.bindingWechatDialog {
-	display: flex;
-	justify-content: center;
-}
-
-@media screen and (max-width: 1200px) {
-	.login_bg {
-		display: none;
-	}
-
-	.main {
-		background: url('../../assets/login_bg.png') no-repeat;
-		background-size: cover;
-	}
-}
+    .page-account-container {
+      padding: 32px 0 24px 0;
+    }
+  }
 </style>

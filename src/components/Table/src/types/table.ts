@@ -1,53 +1,38 @@
-import { VNodeChild } from 'vue';
-import { HeaderConfig } from './tableHeader';
-import { FormProps } from '/@/components/Form/src/types/form';
-
-export interface RecordProps {
-	text: any;
-	record: Recordable;
-	index: number;
+import type { InternalRowData, TableBaseColumn } from 'naive-ui/lib/data-table/src/interface';
+import { ComponentType } from './componentType';
+export interface BasicColumn<T = InternalRowData> extends TableBaseColumn<T> {
+  //编辑表格
+  edit?: boolean;
+  editRow?: boolean;
+  editable?: boolean;
+  editComponent?: ComponentType;
+  editComponentProps?: Recordable;
+  editRule?: boolean | ((text: string, record: Recordable) => Promise<string>);
+  editValueMap?: (value: any) => string;
+  onEditRow?: () => void;
+  // 权限编码控制是否显示
+  auth?: string[];
+  // 业务控制是否显示
+  ifShow?: boolean | ((column: BasicColumn) => boolean);
+  // 控制是否支持拖拽，默认支持
+  draggable?: boolean;
 }
-export declare type CustomRenderFunction = (
-	record: RecordProps
-) => VNodeChild | JSX.Element;
+
+export interface TableActionType {
+  reload: (opt) => Promise<void>;
+  emit?: any;
+  getColumns: (opt?) => BasicColumn[];
+  setColumns: (columns: BasicColumn[] | string[]) => void;
+}
 
 export interface BasicTableProps {
-	immediate: boolean;
-	api?: (...arg: any) => Promise<any>;
-	headerConfig?: HeaderConfig;
-	showSelection?: boolean;
-	showIndex?: boolean;
-	formConfig?: Partial<FormProps>;
-	searchInfo?: Recordable;
-	columns: BasicColumn[];
-	pagination: boolean;
-	actionColumn?: BasicColumn;
-}
-export interface TableActionType {
-	setProps: (props: Partial<BasicTableProps>) => void;
-	reload: (opt?: FetchParams) => Promise<void>;
-}
-
-export interface BasicColumn {
-	type?: 'selection' | 'index' | 'expand';
-	label: string;
-	prop: string;
-	width?: number | string;
-	minWidth?: number | string;
-	fixed?: 'left' | 'right' | boolean;
-	formatter?: (
-		row: any,
-		column: any,
-		cellValue: string | number,
-		index: number
-	) => string;
-	showOverflowTooltip?: boolean;
-	align?: 'left' | 'center' | 'right';
-	customRender?: CustomRenderFunction;
-	slots?: string;
-}
-
-export interface FetchParams {
-	searchInfo?: Recordable;
-	page?: number;
+  title?: string;
+  dataSource: Function;
+  columns: any[];
+  pagination: object;
+  showPagination: boolean;
+  actionColumn: any[];
+  canResize: boolean;
+  resizeHeightOffset: number;
+  loading: boolean;
 }
